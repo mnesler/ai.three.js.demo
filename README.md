@@ -1,7 +1,9 @@
-# Three.js Card Game Demo - Story 1 Implementation
+# Three.js Card Game Demo
 
 ## Overview
-This project implements **Story 1: Basic Scene Setup & Performance Monitoring** from the Three.js Card Game Demo technical specification.
+This is an AI-assisted demonstration project exploring the intersection of artificial intelligence and 3D web development. Using Claude Code and Test-Driven Development (TDD), this project showcases how AI can help build interactive 3D spaces with Three.js. The goal is to create an immersive card game environment while documenting the AI-driven development process.
+
+**Current Status**: Story 1 Implementation - Basic Scene Setup & Performance Monitoring
 
 ## What Was Implemented
 
