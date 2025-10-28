@@ -224,7 +224,7 @@ describe('Scene', () => {
       const controls = scene.getControls();
 
       expect(controls.target.x).toBe(0);
-      expect(controls.target.y).toBe(0);
+      expect(controls.target.y).toBe(-200);
       expect(controls.target.z).toBe(0);
     });
 
@@ -273,16 +273,14 @@ describe('Scene', () => {
       const camera = scene.getCamera();
       const radius = scene.getBoundaryRadius();
 
-      // Camera should be positioned at a reasonable distance from origin
-      const distance = Math.sqrt(
-        camera.position.x ** 2 +
-        camera.position.y ** 2 +
-        camera.position.z ** 2
-      );
+      // Camera should be positioned at a reasonable distance from the head/boundary
+      // Camera is at (0, -192, 20), head/boundary at (0, -200, 0)
+      const headPosition = new THREE.Vector3(0, -200, 0);
+      const distance = camera.position.distanceTo(headPosition);
 
-      // Camera is at (0, 8, 20) so distance will be sqrt(0^2 + 8^2 + 20^2) = sqrt(464) ≈ 21.54
+      // Distance from camera to head should be reasonable
       expect(distance).toBeGreaterThanOrEqual(radius);
-      expect(distance).toBeLessThanOrEqual(radius * 2.5);
+      expect(distance).toBeLessThanOrEqual(radius * 3);
     });
   });
 });

@@ -16,10 +16,11 @@ export class Scene {
   private keys: { [key: string]: boolean } = {};
   private moveSpeed: number = 0.1;
   private rotateSpeed: number = 0.02;
-  private clock: THREE.Clock;
   private headRotationSpeed: number = 0.005; // Default slow rotation
-  private skybox: THREE.Mesh | null = null;
-  private skyboxMaterial: THREE.ShaderMaterial | null = null;
+  private skybox: THREE.LineSegments | null = null;
+  private floorPlane: THREE.Mesh | null = null;
+  private floorMaterial: THREE.ShaderMaterial | null = null;
+  private clock: THREE.Clock;
 
   constructor(container: HTMLElement) {
     this.container = container;
@@ -29,13 +30,13 @@ export class Scene {
 
     // Create scene
     this.scene = new THREE.Scene();
-    // No background color - skybox will be the background
+    this.scene.background = new THREE.Color(0x000000); // Black background
 
     // Create camera
     const aspect = container.clientWidth / container.clientHeight || 1;
     this.camera = new THREE.PerspectiveCamera(75, aspect, 0.1, 1000);
-    this.camera.position.set(0, 8, 20); // Moved further away
-    this.camera.lookAt(0, 0, 0);
+    this.camera.position.set(0, -192, 20); // Positioned to look at head near bottom
+    this.camera.lookAt(0, -200, 0);
 
     // Create renderer
     this.renderer = new THREE.WebGLRenderer({
@@ -54,7 +55,7 @@ export class Scene {
     this.controls.enableZoom = true; // Enable mouse wheel zoom
     this.controls.minDistance = 8; // Minimum zoom distance
     this.controls.maxDistance = 50; // Maximum zoom distance (more space to zoom out)
-    this.controls.target.set(0, 0, 0); // Always look at center
+    this.controls.target.set(0, -200, 0); // Always look at head position near bottom
 
     // Setup lighting
     this.setupLighting();
@@ -64,6 +65,9 @@ export class Scene {
 
     // Create skybox
     this.createSkybox();
+
+    // Create floor with shader
+    this.createFloor();
 
     // Initialize model loader
     this.modelLoader = new ModelLoader(this.scene);
@@ -105,7 +109,6 @@ export class Scene {
         cameraValue.textContent = value.toString();
 
         // Set camera distance from origin
-        const currentDistance = this.camera.position.length();
         const direction = this.camera.position.clone().normalize();
         this.camera.position.copy(direction.multiplyScalar(value));
       });
@@ -171,191 +174,180 @@ export class Scene {
       camera.position.z = x * Math.sin(angle) + z * Math.cos(angle);
     }
 
-    // Update controls target to always look at center
-    this.controls.target.set(0, 0, 0);
+    // Update controls target to always look at head position
+    this.controls.target.set(0, -200, 0);
     this.controls.update();
   }
 
   private createSkybox(): void {
-    // Create box geometry for skybox (smaller to see more detail)
-    const geometry = new THREE.BoxGeometry(100, 100, 100);
+    // Create wireframe box with blue edges (5x bigger = 500x500x500)
+    const geometry = new THREE.BoxGeometry(500, 500, 500);
+    const edges = new THREE.EdgesGeometry(geometry);
+    const material = new THREE.LineBasicMaterial({
+      color: 0x4a90e2, // Blue color
+      linewidth: 1
+    });
 
-    // Create hexagon pattern shader (from shader-example.txt)
-    this.skyboxMaterial = new THREE.ShaderMaterial({
+    this.skybox = new THREE.LineSegments(edges, material);
+    this.scene.add(this.skybox);
+  }
+
+  private createFloor(): void {
+    // Create a large plane at the bottom of the skybox
+    const geometry = new THREE.PlaneGeometry(500, 500, 1, 1);
+
+    // Convert hexshader.txt Shadertoy shader to Three.js
+    this.floorMaterial = new THREE.ShaderMaterial({
       uniforms: {
         iTime: { value: 0.0 },
         iResolution: { value: new THREE.Vector2(800, 600) },
         iMouse: { value: new THREE.Vector2(0, 0) },
       },
       vertexShader: `
-        varying vec3 vWorldPosition;
-
+        varying vec2 vUv;
         void main() {
-          vec4 worldPosition = modelMatrix * vec4(position, 1.0);
-          vWorldPosition = worldPosition.xyz;
+          vUv = uv;
           gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
         }
       `,
       fragmentShader: `
-        #define PI    3.141592653
-        #define PI2   6.283185307
+        #define R3 1.732051
 
         uniform float iTime;
         uniform vec2 iResolution;
         uniform vec2 iMouse;
-        varying vec3 vWorldPosition;
+        varying vec2 vUv;
 
-        const float N = 3.;
-        const float s4 = .577350, s3 = .288683, s2 = .866025;
-        const vec2 s = vec2(1.732,1);
+        vec4 HexCoords(vec2 uv) {
+            vec2 s = vec2(1, R3);
+            vec2 h = .5*s;
 
-        mat2 rot(float g) { return mat2(cos(g), sin(g),-sin(g), cos(g)); }
+            vec2 gv = s*uv;
 
-        float hash21(vec2 p) {
-            p.x = mod(p.x,3.*N);
-            return fract(sin(dot(p,vec2(26.37,45.93)))*4374.23);
+            vec2 a = mod(gv, s)-h;
+            vec2 b = mod(gv+h, s)-h;
+
+            vec2 ab = dot(a,a)<dot(b,b) ? a : b;
+            vec2 st = ab;
+            vec2 id = gv-ab;
+
+            st = ab;
+            return vec4(st, id);
         }
 
-        vec4 hexgrid(vec2 uv) {
-            vec2 p1 = floor(uv/vec2(1.732,1))+.5,
-                 p2 = floor((uv-vec2(1,.5))/vec2(1.732,1))+.5;
-            vec2 h1 = uv- p1*vec2(1.732,1),
-                 h2 = uv-(p2+.5)*vec2(1.732,1);
-            return dot(h1,h1) < dot(h2,h2) ? vec4(h1,p1) : vec4(h2,p2+.5);
+        float GetSize(vec2 id, float seed) {
+            float d = length(id);
+            float t = iTime*.5;
+            float a = sin(d*seed+t)+sin(d*seed*seed*10.+t*2.);
+            return a/2. +.5;
         }
 
-        void draw(float d, float px, vec3 clr, vec3 trm, float tk, float ln, inout vec3 C) {
-            float b = abs(d)-tk;
-            C = mix(C,C*.25,smoothstep(.1+px,-px,b-.01) );
-            C = mix(C,clr,smoothstep(px,-px,b ));
-            C = mix(C,clamp(C+.2,C,vec3(.95)),smoothstep(.01+px,-px, b+.1 ));
-            C = mix(C,trm,smoothstep(px,-px,abs(b)-ln ));
+        mat2 Rot(float a) {
+            float s = sin(a);
+            float c = cos(a);
+            return mat2(c, -s, s, c);
+        }
+
+        float Hexagon(vec2 uv, float r, vec2 offs) {
+            uv *= Rot(mix(0., 3.1415, r));
+
+            r /= 1./sqrt(2.);
+            uv = vec2(-uv.y, uv.x);
+            uv.x *= R3;
+            uv = abs(uv);
+
+            vec2 n = normalize(vec2(1,1));
+            float d = dot(uv, n)-r;
+            d = max(d, uv.y-r*.707);
+
+            d = smoothstep(.06, .02, abs(d));
+
+            d += smoothstep(.1, .09, abs(r-.5))*sin(iTime);
+            return d;
+        }
+
+        float Xor(float a, float b) {
+            return a+b;
+        }
+
+        float Layer(vec2 uv, float s) {
+            vec4 hu = HexCoords(uv*2.);
+
+            float d = Hexagon(hu.xy, GetSize(hu.zw, s), vec2(0));
+            vec2 offs = vec2(1,0);
+            d = Xor(d, Hexagon(hu.xy-offs, GetSize(hu.zw+offs, s), offs));
+            d = Xor(d, Hexagon(hu.xy+offs, GetSize(hu.zw-offs, s), -offs));
+            offs = vec2(.5,.8725);
+            d = Xor(d, Hexagon(hu.xy-offs, GetSize(hu.zw+offs, s), offs));
+            d = Xor(d, Hexagon(hu.xy+offs, GetSize(hu.zw-offs, s), -offs));
+            offs = vec2(-.5,.8725);
+            d = Xor(d, Hexagon(hu.xy-offs, GetSize(hu.zw+offs, s), offs));
+            d = Xor(d, Hexagon(hu.xy+offs, GetSize(hu.zw-offs, s), -offs));
+
+            return d;
+        }
+
+        float N(float p) {
+            return fract(sin(p*123.34)*345.456);
+        }
+
+        vec3 Col(float p, float offs) {
+            float n = N(p)*1234.34;
+            return sin(n*vec3(12.23,45.23,56.2)+offs*3.)*.5+.5;
         }
 
         void main() {
-            // Convert 3D position to 2D UV for hexagon pattern
-            vec3 dir = normalize(vWorldPosition);
-            vec2 F = vec2(atan(dir.x, dir.z), acos(dir.y)) * iResolution.xy * 0.15;
+            vec2 fragCoord = vUv * iResolution;
+            vec2 uv = (fragCoord-.5*iResolution.xy)/iResolution.y;
+            vec2 UV = fragCoord.xy/iResolution.xy-.5;
+            float duv= dot(UV, UV);
 
-            mat2 r2 = rot( 1.047);
-            mat2 r3 = rot(-1.047);
+            float t = iTime*.2+5.;
 
-            vec2 R = iResolution;
-            float T = iTime;
-            vec2 M = iMouse;
+            vec3 col = vec3(0);
 
-            vec2 uv = (2.*F-R.xy)/max(R.x,R.y);
+            // Simplified for floor - use UV coordinates directly
+            uv = vUv * 10.0 - 5.0; // Scale UV to cover plane
 
-            uv = -vec2(log(length(uv)),atan(uv.y,uv.x))-((2.*M.xy-R.xy)/R.xy);
-            uv /= 3.628;
-            uv *= N;
+            uv *= mix(1., 5., sin(t*.5)*.5+.5);
+            uv *= Rot(t);
+            uv.x *= R3;
 
-            uv.y += T*.05;
-            uv.x += T*.15;
-            float sc = 3., px = fwidth(uv.x*sc);
+            for(float i=0.; i<1.; i+=1./3.) {
+                float id = floor(i+t);
+                float tt = fract(i+t);
+                float z = mix(5., .1, tt);
+                float fade = smoothstep(0., .3, tt)*smoothstep(1., .7, tt);
 
-            vec4 H = hexgrid(uv.yx*sc);
-            vec2 p = H.xy, id = H.zw;
-
-            float hs = hash21(id);
-
-            if(hs<.5) p *= hs < .25 ? r3 : r2;
-
-            vec2 p0 = p - vec2(-s3, .5),
-                 p1 = p - vec2( s4,  0),
-                 p2 = p - vec2(-s3,-.5);
-
-            vec3 d3 = vec3(length(p0), length(p1), length(p2));
-            vec2 pp = vec2(0);
-
-            if(d3.x>d3.y) pp = p1;
-            if(d3.y>d3.z) pp = p2;
-            if(d3.z>d3.x && d3.y>d3.x) pp = p0;
-
-            float ln = .015;
-            float tk = .14+.1*sin(uv.x*5.+T);
-
-            vec3 C = vec3(0);
-
-            // tile background
-            float d = max(abs(p.x)*.866025 + abs(p.y)/2., abs(p.y))-(.5-ln);
-            C = mix(vec3(.0125),vec3(0.906,0.282,0.075),smoothstep(px,-px,d) );
-            C = mix(C,C+.1,mix(smoothstep(px,-px,d+.035),0.,clamp(1.-(H.y+.15),0.,1.)) );
-            C = mix(C,C*.1,mix(smoothstep(px,-px,d+.025),0.,clamp(1.-(H.x+.5),0.,1.)) );
-
-            // base tile and empty vars
-            float b = length(pp)-s3;
-            float t = 1e5, g = 1e5;
-            float tg= 1.;
-
-            hs = fract(hs*53.71);
-
-            // alternate tiles
-            if(hs>.95) {
-                vec2 p4 = p*r3, p5 = p*r2;
-
-                b = length(vec2(p.x,abs(p.y)-.5));
-                g = length(p5.x);
-                t = length(p4.x);
-                tg= 0.;
-            }else if(hs>.65) {
-                b = length(p.x);
-                g = min(length(p1)-s3,length(p1+vec2(1.155,0))-s3);
-
-                tg= 0.;
-            } else if(hs<.15) {
-                vec2 p4 = p*r3, p5 = p*r2;
-
-                t = length(p.x);
-                b = length(p5.x);
-                g = length(p4.x);
-
-                tg= 0.;
-            } else if(hs<.22) {
-                b = length(vec2(p.x,abs(p.y)-.5));
-                g = min(length(p1)-s3,length(p1+vec2(1.155,0))-s3);
+                col += fade*tt*Layer(uv*z, N(i+id))*Col(id,duv);
             }
+            col *= 2.;
 
-            vec3 clr = vec3(0.420,0.278,0.043);
-            vec3 trm = vec3(.0);
-
-            // draw segments
-            draw(t,px,clr,trm,tk,ln,C);
-            draw(g,px,clr,trm,tk,ln,C);
-            draw(b,px,clr,trm,tk,ln,C);
-
-            // solid balls
-            if(tg>0.){
-                float v = length(p)-.25;
-                C = mix(C,C*.25,smoothstep(.1+px,-px,v-.01) );
-                C = mix(C,clr,smoothstep(px,-px,v ));
-                C = mix(C,clamp(C+.2,C,vec3(.95)),smoothstep(.01+px,-px, v+.1 ));
-                C = mix(C,trm,smoothstep(px,-px,abs(v)-ln ));
-            }
-
-            C = pow(C,vec3(.4545));
-            gl_FragColor = vec4(C,1);
+            col *= 1.-duv*2.;
+            gl_FragColor = vec4(col,1.0);
         }
       `,
-      side: THREE.BackSide,
-      depthWrite: false,
+      side: THREE.DoubleSide,
     });
 
-    this.skybox = new THREE.Mesh(geometry, this.skyboxMaterial);
-    this.scene.add(this.skybox);
+    this.floorPlane = new THREE.Mesh(geometry, this.floorMaterial);
+    this.floorPlane.rotation.x = -Math.PI / 2; // Rotate to be horizontal
+    this.floorPlane.position.y = -250; // Position at bottom of skybox
+    this.scene.add(this.floorPlane);
   }
 
   private createBoundary(): void {
-    // Create a circular boundary line
+    // Create a circular boundary line near the bottom of the skybox
     const segments = 64;
     const points = [];
+    const yPosition = -200; // Near bottom of 500-unit skybox (bottom is -250)
 
     for (let i = 0; i <= segments; i++) {
       const theta = (i / segments) * Math.PI * 2;
       points.push(
         new THREE.Vector3(
           Math.cos(theta) * this.boundaryRadius,
-          0,
+          yPosition,
           Math.sin(theta) * this.boundaryRadius
         )
       );
@@ -379,8 +371,8 @@ export class Scene {
         true // Add to scene
       );
 
-      // Position and scale the model at center (75% smaller = 0.125 scale)
-      this.headModel.position.set(0, 0, 0);
+      // Position and scale the model near bottom of skybox (75% smaller = 0.125 scale)
+      this.headModel.position.set(0, -200, 0);
       this.headModel.scale.set(0.125, 0.125, 0.125);
 
       console.log('Head model loaded successfully');
@@ -390,14 +382,13 @@ export class Scene {
   }
 
   private setupLighting(): void {
-    // Ambient light for overall illumination
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    // Soft blue ambient light
+    const ambientLight = new THREE.AmbientLight(0x4a90e2, 0.5);
     this.scene.add(ambientLight);
 
-    // Directional light for shadows and depth
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-    directionalLight.position.set(5, 10, 7.5);
-    directionalLight.castShadow = true;
+    // Soft blue directional light from above
+    const directionalLight = new THREE.DirectionalLight(0x6ab0f2, 0.6);
+    directionalLight.position.set(0, 50, 0);
     this.scene.add(directionalLight);
   }
 
@@ -419,11 +410,10 @@ export class Scene {
     // Update orbit controls
     this.controls.update();
 
-    // Update shader time for animation
+    // Update shader time for floor animation
     const elapsedTime = this.clock.getElapsedTime();
-
-    if (this.skyboxMaterial) {
-      this.skyboxMaterial.uniforms.iTime.value = elapsedTime;
+    if (this.floorMaterial) {
+      this.floorMaterial.uniforms.iTime.value = elapsedTime;
     }
 
     // Rotate the head on Y-axis based on rotation speed
