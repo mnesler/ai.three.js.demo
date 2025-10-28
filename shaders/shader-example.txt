@@ -1,0 +1,154 @@
+/** 
+
+    License: Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported License
+    Playing in 2D for something I want to make in 3D/Raymarching. 
+    Then got caught up in the polar coords thing, and said - thats 
+    a neat design!
+    
+    Hexagon X5
+    12/17/2024  @byt3_m3chanic
+    
+*/
+
+#define R     iResolution
+#define T     iTime
+#define M     iMouse
+
+#define PI    3.141592653
+#define PI2   6.283185307
+
+const float N = 3.;
+const float s4 = .577350, s3 = .288683, s2 = .866025;
+const vec2 s = vec2(1.732,1);
+
+vec3 clr, trm;
+float tk, ln;
+mat2 r2,r3;
+
+mat2 rot(float g) { return mat2(cos(g), sin(g),-sin(g), cos(g)); }
+float hash21(vec2 p) { 
+    p.x = mod(p.x,3.*N);
+    return fract(sin(dot(p,vec2(26.37,45.93)))*4374.23); 
+}
+
+// Hexagon grid system, can be simplified but
+// written out long-form for readability. 
+// return vec2 uv and vec2 id
+vec4 hexgrid(vec2 uv) {
+    vec2 p1 = floor(uv/vec2(1.732,1))+.5,
+         p2 = floor((uv-vec2(1,.5))/vec2(1.732,1))+.5;
+    vec2 h1 = uv- p1*vec2(1.732,1),
+         h2 = uv-(p2+.5)*vec2(1.732,1);
+    return dot(h1,h1) < dot(h2,h2) ? vec4(h1,p1) : vec4(h2,p2+.5);
+}
+
+void draw(float d, float px, inout vec3 C) {
+    float b = abs(d)-tk;
+    C = mix(C,C*.25,smoothstep(.1+px,-px,b-.01) );
+    C = mix(C,clr,smoothstep(px,-px,b ));
+    C = mix(C,clamp(C+.2,C,vec3(.95)),smoothstep(.01+px,-px, b+.1 ));
+    C = mix(C,trm,smoothstep(px,-px,abs(b)-ln ));
+}
+
+void mainImage( out vec4 O, in vec2 F )
+{
+    r2 = rot( 1.047);
+    r3 = rot(-1.047);
+    
+    vec2 uv = (2.*F-R.xy)/max(R.x,R.y);
+  
+    uv = -vec2(log(length(uv)),atan(uv.y,uv.x))-((2.*M.xy-R.xy)/R.xy);
+    uv /= 3.628;
+    uv *= N;
+        
+    uv.y += T*.05;
+    uv.x += T*.15;
+    vec2 mv=uv;
+    float sc = 3., px = fwidth(uv.x*sc);
+
+    vec4 H = hexgrid(uv.yx*sc);
+    vec2 p = H.xy, id = H.zw;
+
+    float hs = hash21(id);
+    
+    if(hs<.5) p *= hs < .25 ? r3 : r2;
+
+    vec2 p0 = p - vec2(-s3, .5),
+         p1 = p - vec2( s4,  0),
+         p2 = p - vec2(-s3,-.5);
+
+    vec3 d3 = vec3(length(p0), length(p1), length(p2));
+    vec2 pp = vec2(0);
+
+    if(d3.x>d3.y) pp = p1;
+    if(d3.y>d3.z) pp = p2;
+    if(d3.z>d3.x && d3.y>d3.x) pp = p0;
+     
+    ln = .015;
+    tk = .14+.1*sin(uv.x*5.+T);
+    
+    vec3 C = vec3(0);
+    
+    // tile background
+    float d = max(abs(p.x)*.866025 + abs(p.y)/2., abs(p.y))-(.5-ln);
+    C = mix(vec3(.0125),texture(iChannel0,p*2.).rgb*vec3(0.906,0.282,0.075),smoothstep(px,-px,d) );
+    C = mix(C,C+.1,mix(smoothstep(px,-px,d+.035),0.,clamp(1.-(H.y+.15),0.,1.)) );
+    C = mix(C,C*.1,mix(smoothstep(px,-px,d+.025),0.,clamp(1.-(H.x+.5),0.,1.)) );
+    
+    // base tile and empty vars
+    float b = length(pp)-s3;
+    float t = 1e5, g = 1e5;
+    float tg= 1.;
+    
+    hs = fract(hs*53.71);
+
+    // alternate tiles
+    if(hs>.95) {
+        vec2 p4 = p*r3, p5 = p*r2;
+        
+        b = length(vec2(p.x,abs(p.y)-.5));
+        g = length(p5.x);
+        t = length(p4.x);
+        tg= 0.;
+    }else if(hs>.65) {
+        b = length(p.x);
+        g = min(length(p1)-s3,length(p1+vec2(1.155,0))-s3);
+        
+        tg= 0.;
+    } else if(hs<.15) {
+        vec2 p4 = p*r3, p5 = p*r2;
+        
+        t = length(p.x);
+        b = length(p5.x);
+        g = length(p4.x);
+        
+        tg= 0.;
+    } else if(hs<.22) {
+        b = length(vec2(p.x,abs(p.y)-.5));
+        g = min(length(p1)-s3,length(p1+vec2(1.155,0))-s3);
+
+    }
+    
+    clr = vec3(0.420,0.278,0.043);
+    trm = vec3(.0);
+    
+    // draw segments
+    draw(t,px,C);
+    draw(g,px,C);
+    draw(b,px,C);
+    // solid balls
+    if(tg>0.){
+        float v = length(p)-.25;
+        C = mix(C,C*.25,smoothstep(.1+px,-px,v-.01) );
+        C = mix(C,clr,smoothstep(px,-px,v ));
+        C = mix(C,clamp(C+.2,C,vec3(.95)),smoothstep(.01+px,-px, v+.1 ));
+        C = mix(C,trm,smoothstep(px,-px,abs(v)-ln ));
+    
+    }
+    
+    C = pow(C,vec3(.4545));
+    O = vec4(C,1);
+}
+
+// end
+

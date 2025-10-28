@@ -24,7 +24,8 @@
   "homepage": "https://github.com/mnesler/ai.three.js.demo#readme",
   "dependencies": {
     "@types/three": "^0.180.0",
-    "three": "^0.180.0"
+    "three": "^0.180.0",
+    "three-stdlib": "^2.36.0"
   },
   "devDependencies": {
     "@types/node": "^24.9.1",

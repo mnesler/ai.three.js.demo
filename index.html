@@ -37,6 +37,73 @@
       border-radius: 5px;
       z-index: 1000;
     }
+
+    .control-panel {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.7);
+      padding: 15px 30px;
+      border-radius: 10px;
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+
+    #camera-control {
+      bottom: 90px;
+    }
+
+    #rotation-control {
+      bottom: 20px;
+    }
+
+    .control-panel label {
+      color: #fff;
+      font-size: 14px;
+      font-weight: bold;
+    }
+
+    .control-slider {
+      width: 300px;
+      height: 6px;
+      -webkit-appearance: none;
+      appearance: none;
+      background: linear-gradient(to right, #4a90e2, #e24a90);
+      outline: none;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+
+    .control-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      background: #fff;
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+    }
+
+    .control-slider::-moz-range-thumb {
+      width: 20px;
+      height: 20px;
+      background: #fff;
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+      border: none;
+    }
+
+    .control-value {
+      color: #0f0;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      min-width: 50px;
+      text-align: right;
+    }
   </style>
 </head>
 <body>
@@ -44,6 +111,16 @@
   <div id="stats">
     <div>FPS: <span id="fps">0</span></div>
     <div>Frame Time: <span id="frametime">0</span>ms</div>
+  </div>
+  <div id="camera-control" class="control-panel">
+    <label>Camera Zoom:</label>
+    <input type="range" id="camera-slider" class="control-slider" min="8" max="50" value="22" step="1">
+    <span id="camera-value" class="control-value">22</span>
+  </div>
+  <div id="rotation-control" class="control-panel">
+    <label>Rotation Speed:</label>
+    <input type="range" id="rotation-slider" class="control-slider" min="0" max="100" value="20" step="1">
+    <span id="speed-value" class="control-value">20</span>
   </div>
   <script type="module" src="/src/main.ts"></script>
 </body>

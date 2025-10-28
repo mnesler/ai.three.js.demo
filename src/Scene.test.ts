@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { Scene } from './Scene';
 import * as THREE from 'three';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
 describe('Scene', () => {
   let scene: Scene;
@@ -192,6 +193,96 @@ describe('Scene', () => {
       // After disposal, the canvas should be removed
       const canvas = container.querySelector('canvas');
       expect(canvas).toBeNull();
+    });
+  });
+
+  describe('Orbit Controls', () => {
+    it('should create orbit controls', () => {
+      scene = new Scene(container);
+      const controls = scene.getControls();
+
+      expect(controls).toBeInstanceOf(OrbitControls);
+    });
+
+    it('should configure controls to disable panning', () => {
+      scene = new Scene(container);
+      const controls = scene.getControls();
+
+      expect(controls.enablePan).toBe(false);
+    });
+
+    it('should enable damping on controls', () => {
+      scene = new Scene(container);
+      const controls = scene.getControls();
+
+      expect(controls.enableDamping).toBe(true);
+      expect(controls.dampingFactor).toBe(0.05);
+    });
+
+    it('should set controls target to center', () => {
+      scene = new Scene(container);
+      const controls = scene.getControls();
+
+      expect(controls.target.x).toBe(0);
+      expect(controls.target.y).toBe(0);
+      expect(controls.target.z).toBe(0);
+    });
+
+    it('should allow zoom within reasonable distances', () => {
+      scene = new Scene(container);
+      const controls = scene.getControls();
+
+      expect(controls.enableZoom).toBe(true);
+      expect(controls.minDistance).toBe(8);
+      expect(controls.maxDistance).toBe(50);
+    });
+  });
+
+  describe('Circular Boundary', () => {
+    it('should create a circular boundary', () => {
+      scene = new Scene(container);
+      const boundary = scene.getBoundary();
+
+      expect(boundary).toBeInstanceOf(THREE.Line);
+    });
+
+    it('should add boundary to scene', () => {
+      scene = new Scene(container);
+      const boundary = scene.getBoundary();
+      const threeScene = scene.getScene();
+
+      expect(threeScene.children).toContain(boundary);
+    });
+
+    it('should have correct boundary radius', () => {
+      scene = new Scene(container);
+      const radius = scene.getBoundaryRadius();
+
+      expect(radius).toBe(10);
+    });
+
+    it('should create boundary with line material', () => {
+      scene = new Scene(container);
+      const boundary = scene.getBoundary();
+
+      expect(boundary?.material).toBeInstanceOf(THREE.LineBasicMaterial);
+    });
+
+    it('should position camera near boundary radius', () => {
+      scene = new Scene(container);
+      const camera = scene.getCamera();
+      const radius = scene.getBoundaryRadius();
+
+      // Camera should be positioned at a reasonable distance from origin
+      const distance = Math.sqrt(
+        camera.position.x ** 2 +
+        camera.position.y ** 2 +
+        camera.position.z ** 2
+      );
+
+      // Camera is at (0, 8, 20) so distance will be sqrt(0^2 + 8^2 + 20^2) = sqrt(464) ≈ 21.54
+      expect(distance).toBeGreaterThanOrEqual(radius);
+      expect(distance).toBeLessThanOrEqual(radius * 2.5);
     });
   });
 });
