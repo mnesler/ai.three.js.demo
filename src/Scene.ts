@@ -18,6 +18,7 @@ export class Scene {
   private rotateSpeed: number = 0.02;
   private headRotationSpeed: number = 0.005; // Default slow rotation
   private skybox: THREE.LineSegments | null = null;
+  private skyboxSize: number = 2000; // Default skybox size
   private floorPlane: THREE.Mesh | null = null;
   private floorMaterial: THREE.ShaderMaterial | null = null;
   private clock: THREE.Clock;
@@ -113,6 +114,18 @@ export class Scene {
         this.camera.position.copy(direction.multiplyScalar(value));
       });
     }
+
+    // Setup skybox size control
+    const skyboxSlider = document.getElementById('skybox-slider') as HTMLInputElement;
+    const skyboxValue = document.getElementById('skybox-value');
+
+    if (skyboxSlider && skyboxValue) {
+      skyboxSlider.addEventListener('input', (e) => {
+        const value = parseInt((e.target as HTMLInputElement).value);
+        skyboxValue.textContent = value.toString();
+        this.updateSkyboxSize(value);
+      });
+    }
   }
 
   private setupKeyboardControls(): void {
@@ -180,11 +193,31 @@ export class Scene {
   }
 
   private createSkybox(): void {
-    // Create wireframe box with blue edges (5x bigger = 500x500x500)
-    const geometry = new THREE.BoxGeometry(500, 500, 500);
+    // Create wireframe box with blue edges (default 2000x2000x2000, adjustable up to 9000)
+    const geometry = new THREE.BoxGeometry(this.skyboxSize, this.skyboxSize, this.skyboxSize);
     const edges = new THREE.EdgesGeometry(geometry);
     const material = new THREE.LineBasicMaterial({
       color: 0x4a90e2, // Blue color
+      linewidth: 1
+    });
+
+    this.skybox = new THREE.LineSegments(edges, material);
+    this.scene.add(this.skybox);
+  }
+
+  private updateSkyboxSize(newSize: number): void {
+    // Remove old skybox
+    if (this.skybox) {
+      this.scene.remove(this.skybox);
+      this.skybox.geometry.dispose();
+    }
+
+    // Update size and recreate
+    this.skyboxSize = newSize;
+    const geometry = new THREE.BoxGeometry(this.skyboxSize, this.skyboxSize, this.skyboxSize);
+    const edges = new THREE.EdgesGeometry(geometry);
+    const material = new THREE.LineBasicMaterial({
+      color: 0x4a90e2,
       linewidth: 1
     });
 
