@@ -1,0 +1,38 @@
+{
+  "name": "ai.three.js.demo",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest --coverage"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mnesler/ai.three.js.demo.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/mnesler/ai.three.js.demo/issues"
+  },
+  "homepage": "https://github.com/mnesler/ai.three.js.demo#readme",
+  "dependencies": {
+    "@types/three": "^0.180.0",
+    "three": "^0.180.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.9.1",
+    "@vitest/ui": "^4.0.4",
+    "happy-dom": "^20.0.8",
+    "jsdom": "^27.0.1",
+    "typescript": "^5.9.3",
+    "vite": "^7.1.12",
+    "vitest": "^4.0.4"
+  }
+}

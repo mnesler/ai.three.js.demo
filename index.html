@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Three.js Card Game Demo</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      overflow: hidden;
+      font-family: Arial, sans-serif;
+    }
+
+    #app {
+      width: 100vw;
+      height: 100vh;
+    }
+
+    canvas {
+      display: block;
+    }
+
+    #stats {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: rgba(0, 0, 0, 0.7);
+      color: #0f0;
+      padding: 10px;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      border-radius: 5px;
+      z-index: 1000;
+    }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+  <div id="stats">
+    <div>FPS: <span id="fps">0</span></div>
+    <div>Frame Time: <span id="frametime">0</span>ms</div>
+  </div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
