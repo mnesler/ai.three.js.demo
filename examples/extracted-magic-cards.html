@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Magic Cards - Fan Display</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 20px;
+            background-color: #0c0f11;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .u-text-center {
+            text-align: center;
+            width: 100%;
+        }
+
+        responsive-grid {
+            display: block;
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        grid-item {
+            display: block;
+            padding: 20px;
+        }
+
+        /* Magic Cards Container */
+        magic-cards {
+            display: block;
+            position: relative;
+            width: 100%;
+            height: 400px;
+            margin: 50px auto;
+            perspective: 1000px;
+        }
+
+        magic-cards[config="fan"] {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 500px;
+        }
+
+        /* Individual Magic Card */
+        magic-card {
+            display: inline-block;
+            width: 265px;
+            height: 370px;
+            position: relative;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            transform-style: preserve-3d;
+        }
+
+        magic-cards[config="fan"] magic-card {
+            position: absolute;
+            transform-origin: center bottom;
+        }
+
+        magic-card img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            transition: all 0.3s ease;
+        }
+
+        magic-card:hover {
+            z-index: 100 !important;
+        }
+
+        magic-card:hover img {
+            box-shadow: 0 20px 50px rgba(234, 59, 1, 0.6);
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 850px) {
+            magic-cards[config="fan"] {
+                flex-direction: column;
+                height: auto;
+                min-height: auto;
+            }
+
+            magic-cards[config="fan"] magic-card {
+                position: relative;
+                margin: 10px 0;
+                transform: none !important;
+            }
+
+            magic-card {
+                width: 223px;
+                height: 311px;
+            }
+        }
+
+        /* Loading state */
+        magic-card.loading {
+            background: linear-gradient(90deg, #1a1d21 25%, #2a2d31 50%, #1a1d21 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s ease-in-out infinite;
+        }
+
+        @keyframes loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="u-text-center">
+        <responsive-grid>
+            <grid-item>
+                <magic-cards config="fan">
+                    <magic-card face="https://gatherer-static.wizards.com/Cards/medium/2EC0648E8BCA07C9320A436F6E7F87763BA1F684F8F4537A261FFD219FC4B72B.webp">Urza's Saga</magic-card>
+                    <magic-card face="https://gatherer-static.wizards.com/Cards/medium/BF5B37C073BE99A750836F69EC518625EB2713F71CA75A2184EB6AAC09C65248.webp">Solitude</magic-card>
+                    <magic-card face="https://gatherer-static.wizards.com/Cards/medium/72C58A52219282523FDD0B7E16779C78C6A6A1EE9D2F621AB9E03DC029F384E5.webp">Subtlety</magic-card>
+                    <magic-card face="https://gatherer-static.wizards.com/Cards/medium/139E577C1E35453DBD4F9D1449F4020D045EB6919C5912B4CB2296CF06B24805.webp">Grief</magic-card>
+                    <magic-card face="https://gatherer-static.wizards.com/Cards/medium/06818DED446D10B8FE992E0558298690CAE3003D91F6BD2C4277DB02709917BD.webp">Fury</magic-card>
+                    <magic-card face="https://gatherer-static.wizards.com/Cards/medium/9D173629ABC2E7C59A3AB0F0319AAF5462B12B28E408D9E53C059064DF3DAA47.webp">Endurance</magic-card>
+                </magic-cards>
+            </grid-item>
+        </responsive-grid>
+    </div>
+
+    <script>
+        // Magic Card Custom Element
+        class MagicCard extends HTMLElement {
+            constructor() {
+                super();
+                this.faceUrl = this.getAttribute('face');
+                this.backUrl = this.getAttribute('back');
+                this.caption = this.textContent.trim();
+            }
+
+            connectedCallback() {
+                this.render();
+            }
+
+            render() {
+                this.innerHTML = '';
+
+                const img = document.createElement('img');
+                img.src = this.faceUrl;
+                img.alt = this.caption;
+                img.loading = 'lazy';
+
+                // Add loading class until image loads
+                this.classList.add('loading');
+
+                img.onload = () => {
+                    this.classList.remove('loading');
+                };
+
+                img.onerror = () => {
+                    console.error(`Failed to load card image: ${this.faceUrl}`);
+                    this.classList.remove('loading');
+                };
+
+                this.appendChild(img);
+
+                // Store caption as data attribute for potential tooltips
+                this.setAttribute('data-caption', this.caption);
+            }
+        }
+
+        // Magic Cards Container Custom Element
+        class MagicCards extends HTMLElement {
+            constructor() {
+                super();
+                this.config = this.getAttribute('config');
+            }
+
+            connectedCallback() {
+                this.setupCards();
+
+                // Re-layout on window resize
+                this.resizeObserver = new ResizeObserver(() => {
+                    if (this.config === 'fan') {
+                        this.layoutFan();
+                    }
+                });
+                this.resizeObserver.observe(this);
+            }
+
+            disconnectedCallback() {
+                if (this.resizeObserver) {
+                    this.resizeObserver.disconnect();
+                }
+            }
+
+            setupCards() {
+                if (this.config === 'fan') {
+                    this.layoutFan();
+                }
+            }
+
+            layoutFan() {
+                const cards = Array.from(this.querySelectorAll('magic-card'));
+                const totalCards = cards.length;
+
+                if (totalCards === 0) return;
+
+                // Check if we're in mobile view
+                const isMobile = window.innerWidth <= 850;
+
+                if (isMobile) {
+                    // Stack cards vertically on mobile
+                    cards.forEach((card, index) => {
+                        card.style.position = 'relative';
+                        card.style.transform = 'none';
+                        card.style.zIndex = index;
+                        // Remove hover listeners on mobile
+                        card.onmouseenter = null;
+                        card.onmouseleave = null;
+                    });
+                    return;
+                }
+
+                // Fan layout parameters
+                const maxRotation = 30; // Maximum rotation angle in degrees
+                const cardSpacing = 80; // Horizontal spacing between cards
+                const verticalOffset = 20; // Vertical curve offset
+
+                cards.forEach((card, index) => {
+                    const middleIndex = (totalCards - 1) / 2;
+                    const offset = index - middleIndex;
+
+                    // Calculate rotation (fan effect)
+                    const rotation = (offset / totalCards) * maxRotation;
+
+                    // Calculate horizontal position
+                    const xOffset = offset * cardSpacing;
+
+                    // Calculate vertical position (arc effect)
+                    const normalizedOffset = Math.abs(offset) / middleIndex;
+                    const yOffset = Math.pow(normalizedOffset, 2) * verticalOffset;
+
+                    // Store base transform values
+                    const baseTransform = `
+                        translateX(${xOffset}px)
+                        translateY(${yOffset}px)
+                        rotate(${rotation}deg)
+                    `;
+
+                    // Apply base transforms
+                    card.style.transform = baseTransform;
+
+                    // Set z-index so center cards appear on top
+                    const baseZIndex = totalCards - Math.abs(offset);
+                    card.style.zIndex = baseZIndex;
+
+                    // Add hover effect that preserves base transform
+                    card.onmouseenter = function() {
+                        this.style.transform = `
+                            translateX(${xOffset}px)
+                            translateY(${yOffset - 30}px)
+                            rotate(${rotation}deg)
+                            scale(1.1)
+                        `;
+                    };
+
+                    card.onmouseleave = function() {
+                        this.style.transform = baseTransform;
+                    };
+                });
+            }
+        }
+
+        // Responsive Grid Custom Element
+        class ResponsiveGrid extends HTMLElement {
+            connectedCallback() {
+                this.handleResponsive();
+                window.addEventListener('resize', () => this.handleResponsive());
+            }
+
+            handleResponsive() {
+                const slideViewIf = this.getAttribute('slide-view-if');
+                if (slideViewIf) {
+                    // Parse media query or width condition
+                    // For now, just apply basic responsive behavior
+                    this.style.display = 'block';
+                }
+            }
+        }
+
+        // Grid Item Custom Element
+        class GridItem extends HTMLElement {
+            connectedCallback() {
+                this.style.display = 'block';
+            }
+        }
+
+        // Register all custom elements
+        customElements.define('magic-card', MagicCard);
+        customElements.define('magic-cards', MagicCards);
+        customElements.define('responsive-grid', ResponsiveGrid);
+        customElements.define('grid-item', GridItem);
+    </script>
+</body>
+</html>
